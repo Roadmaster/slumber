@@ -42,6 +42,37 @@ class ResourceTestCase(unittest.TestCase):
         resp = self.base_resource.get()
         self.assertEqual(resp['result'], ['a', 'b', 'c'])
 
+    def test_get_batched_200_json(self):
+        chunks=['{"meta": {"limit": 5, "next": "/api/v1/test/?offset=5&limit=5&format=json", "offset": 0, "previous": null, "total_count": 9}, "objects": [1,2,3,4,5]}',
+                '{"meta": {"limit": 5, "next": null, "offset": 0, "previous": null, "total_count": 9}, "objects": [6,7,8,9]}']
+        r = mock.Mock(spec=requests.Response)
+        r.status_code = 200
+        r.headers = {"content-type": "application/json"}
+        r.content=mock.Mock(side_effect=chunks)
+
+        self.base_resource._store.update({
+            "session": mock.Mock(spec=requests.Session),
+            "serializer": slumber.serialize.Serializer(),
+        })
+        self.base_resource._store["session"].request.return_value = r
+
+        resp = self.base_resource._request("GET")
+
+        self.assertTrue(resp is r)
+        self.assertEqual(resp.content, r.content)
+
+        self.base_resource._store["session"].request.assert_called_once_with(
+            "GET",
+            "http://example/api/v1/test",
+            data=None,
+            files=None,
+            params=None,
+            headers={"content-type": self.base_resource._store["serializer"].get_content_type(), "accept": self.base_resource._store["serializer"].get_content_type()}
+        )
+
+        resp = self.base_resource.get_batched()
+        self.assertEqual(resp, list(range(1, 10)))
+
     def test_get_200_text(self):
         r = mock.Mock(spec=requests.Response)
         r.status_code = 200

@@ -138,6 +138,31 @@ class Resource(ResourceAttributesMixin, object):
         else:
             return  # @@@ We should probably do some sort of error here? (Is this even possible?)
 
+    def get_batched(self, **kwargs):
+        """
+        Similar to get() but handles batched query results. Particularly tastypie
+        sends out a dictionary with a 'meta' element indicating next batch of the set
+        (as a next_query element) and an 'objects' element with the actual batch data.
+        get_batched will run all the queries in sequence and return just the objects
+        aggregated from all the queries.
+        """
+        effective_args = kwargs
+        objects = []
+        keep_going = True
+        import pdb; pdb.set_trace()
+        while keep_going:
+            print(effective_args)
+            response_data = self.get(**effective_args)
+            objects.extend(response_data['objects'])
+            if response_data['meta']['next']:
+                params_string = response_data['meta']['next'].split('?')[1]
+                params=[param.split("=", 1) for param in params_string.split('&')]
+                effective_args.update(params)
+            else:
+                # We're done
+                keep_going = False
+        return objects
+
     def post(self, data=None, files=None, **kwargs):
         s = self._store["serializer"]
 
